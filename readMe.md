@@ -25,7 +25,8 @@ and unzip in the root directory.
 ### Data Reorganization
 Run `python reorganize_images.py`. This file will copy file from `./train` into `./train_reorganize/cell_type` of the 
 three cell type : cort, astro and shsy5y. Also decode the annotation mask into
-one PNG file with the same file name as the original image file.
+one PNG file with the same file name as the original image file. Merge LIVECell's shsy5y images 
+along with masks to the training data. This file is **safe** to run multiple times.
 
 ## Work Assignment
 
@@ -44,4 +45,4 @@ This part is assigned to Tianxing Wang
 Train a UNet model for segmentation
 
 
-##Continue...
+## Continue...
