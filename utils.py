@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 import cv2
 import matplotlib.pyplot as plt
+import json
+from pycocotools.coco import COCO
 
 WIDTH = 704
 HEIGHT = 520
@@ -129,13 +131,15 @@ def train_history_plot(acc_list, loss_list, test_acc_list, title="", converge=0.
     fig = plt.figure()
     ax = fig.add_subplot(111)
 
-    plt.xlim(0, len(loss_list))
+    epochs = len(loss_list);
 
-    acc_curve, = ax.plot(range(len(acc_list)), acc_list, '-k', linewidth=1, color='r')
-    test_acc_curve, = ax.plot(range(len(test_acc_list)), test_acc_list, '--k', linewidth=1, color='b')
+    plt.xlim(1, epochs + 1)
+
+    acc_curve, = ax.plot(range(1, epochs + 1), acc_list, '-k', linewidth=1, color='r')
+    test_acc_curve, = ax.plot(range(1, epochs + 1), test_acc_list, '--k', linewidth=1, color='b')
 
     ax2 = ax.twinx()
-    loss_curve, = ax2.plot(range(len(loss_list)), loss_list, 'k', linewidth=1, color='g')
+    loss_curve, = ax2.plot(range(1, epochs + 1), loss_list, 'k', linewidth=1, color='g')
 
     if title:
         plt.title(title)
@@ -143,9 +147,55 @@ def train_history_plot(acc_list, loss_list, test_acc_list, title="", converge=0.
     ax2.set_ylabel('Loss')
     ax.set_xlabel('Iteration')
     if converge > 0.0:
-        ax.hlines(converge, 0, len(loss_list), colors="y", linestyles="dashed")
+        ax.hlines(converge, 1, len(loss_list), colors="y", linestyles="dashed")
 
     plt.legend(handles=[acc_curve, test_acc_curve, loss_curve], labels=['train acc', 'test acc', 'loss'],
                loc='lower right')
 
     plt.show()
+
+
+def load_json_to_dict(json_path):
+    with open(json_path) as json_file:
+        data = json.load(json_file)
+    return data
+
+
+def modify_live_cell_json(file_path):
+    """
+    the json file in LIVECELL need to be modified before decode with coco
+    :param file_path:
+    :return:
+    """
+    data = load_json_to_dict(file_path)
+    annotations = data['annotations']
+    if isinstance(annotations, dict):  # original is dict, which should be modified as list
+        data['annotations'] = [annotations[ann] for ann in annotations]
+        with open(file_path, 'w') as j: # overwrite original json data file
+            json.dump(data, j)
+
+
+def get_coco(file_path):
+    """
+
+    :param file_path:
+    :return:
+    """
+    modify_live_cell_json(file_path)
+    return COCO(file_path)
+
+
+def decode_coco_annotation_to_mask(coco, image_id, image_size=IMAGE_SHAPE):
+    """
+
+    :param coco:
+    :param image_id:
+    :param image_size:
+    :return:
+    """
+    annotation_ids = coco.getAnnIds(image_id)
+    annotations = coco.loadAnns(annotation_ids)
+    mask = np.zeros(image_size)
+    for ann in annotations:
+        mask = np.maximum(coco.annToMask(ann), mask)
+    return mask
