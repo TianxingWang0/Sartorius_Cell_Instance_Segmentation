@@ -4,12 +4,16 @@ Useful helper methods
 
 """
 
+import os
 import numpy as np
 import pandas as pd
 import cv2
 import matplotlib.pyplot as plt
 import json
 from pycocotools.coco import COCO
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+
 
 WIDTH = 704
 HEIGHT = 520
@@ -118,41 +122,70 @@ def visualize_image_id(df, image_id):
     visualize_image_with_mask(image, mask)
 
 
-def train_history_plot(acc_list, loss_list, test_acc_list, title="", converge=0.0):
+class TrainHistory:
+    """
+    Record model training history
     """
 
-    :param acc_list:
-    :param loss_list:
-    :param test_acc_list:
-    :param title: The title for the plot
-    :param converge: The converge validation accuracy, plot a horizontal line
-    :return:
-    """
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    def __init__(self):
+        self.accuracy = []
+        self.loss = []
+        self.val_accuracy = []
+        self.epochs = 0
 
-    epochs = len(loss_list);
+    def add(self, history):
+        """
 
-    plt.xlim(1, epochs + 1)
+        :param history: keras.model.fit().history
+        :return:
+        """
+        self.accuracy += history['accuracy']
+        self.loss += history['loss']
+        self.val_accuracy += history['val_accuracy']
+        self.epochs = len(self.accuracy)
 
-    acc_curve, = ax.plot(range(1, epochs + 1), acc_list, '-k', linewidth=1, color='r')
-    test_acc_curve, = ax.plot(range(1, epochs + 1), test_acc_list, '--k', linewidth=1, color='b')
+    def train_history_plot(self, title="", converge=0.0):
+        """
 
-    ax2 = ax.twinx()
-    loss_curve, = ax2.plot(range(1, epochs + 1), loss_list, 'k', linewidth=1, color='g')
+        :param title: The title for the plot
+        :param converge: The converge validation accuracy, plot a horizontal line
+        :return:
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
 
-    if title:
-        plt.title(title)
-    ax.set_ylabel('Accuracy')
-    ax2.set_ylabel('Loss')
-    ax.set_xlabel('Iteration')
-    if converge > 0.0:
-        ax.hlines(converge, 1, len(loss_list), colors="y", linestyles="dashed")
+        plt.xlim(1, self.epochs, 1)
+        x = range(1, self.epochs + 1, 1)
 
-    plt.legend(handles=[acc_curve, test_acc_curve, loss_curve], labels=['train acc', 'test acc', 'loss'],
-               loc='lower right')
+        acc_curve, = ax.plot(x, self.accuracy, '-k', linewidth=1, color='r')
+        ax.scatter(x, self.accuracy, s=60, c='r', marker='+')
+        val_acc_curve, = ax.plot(x, self.val_accuracy, '--k', linewidth=1, color='b')
+        ax.scatter(x, self.val_accuracy, s=60, c='b', marker='*')
 
-    plt.show()
+        ax2 = ax.twinx()
+        loss_curve, = ax2.plot(x, self.loss, 'k', linewidth=1, color='g')
+        ax2.scatter(x, self.loss, s=60, c='g', marker='.')
+
+        if title:
+            plt.title(title)
+        ax.set_ylabel('Accuracy')
+        ax2.set_ylabel('Loss')
+        ax.set_xlabel('Iteration')
+        if converge > 0.0:
+            ax.hlines(converge, 1, self.epochs, colors="y", linestyles="dashed")
+
+        plt.legend(handles=[acc_curve, val_acc_curve, loss_curve], labels=['train acc', 'val acc', 'train loss'],
+                   loc='lower right')
+
+        plt.show()
+
+    def to_file(self, file_path):
+        with open(file_path, 'w') as f:
+            f.write(','.join([str(ele) for ele in self.accuracy]))
+            f.write('\n')
+            f.write(','.join([str(ele) for ele in self.loss]))
+            f.write('\n')
+            f.write(','.join([str(ele) for ele in self.val_accuracy]))
 
 
 def load_json_to_dict(json_path):
@@ -171,7 +204,7 @@ def modify_live_cell_json(file_path):
     annotations = data['annotations']
     if isinstance(annotations, dict):  # original is dict, which should be modified as list
         data['annotations'] = [annotations[ann] for ann in annotations]
-        with open(file_path, 'w') as j: # overwrite original json data file
+        with open(file_path, 'w') as j:  # overwrite original json data file
             json.dump(data, j)
 
 
@@ -199,3 +232,15 @@ def decode_coco_annotation_to_mask(coco, image_id, image_size=IMAGE_SHAPE):
     for ann in annotations:
         mask = np.maximum(coco.annToMask(ann), mask)
     return mask
+
+
+def visualize_prediction(predict, img):
+    mask = predict(img)
+
+
+def get_confusion_matrix(classes, true_label, predict_label):
+    mat = confusion_matrix(true_label, predict_label)
+    sns.heatmap(mat.T, square=True, annot=True, fmt='d', cbar=False,
+                xticklabels=classes, yticklabels=classes)
+    plt.xlabel('true label')
+    plt.ylabel('predicted label');
