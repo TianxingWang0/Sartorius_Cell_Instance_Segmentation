@@ -2,6 +2,7 @@ from utils import *
 from glob import glob
 from tensorflow.keras.applications.resnet50 import ResNet50
 from tensorflow.keras.models import Model
+from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, InputLayer
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -67,6 +68,11 @@ def train(lr,epochs):
                                       verbose=1)
     results = model.evaluate(val_generator)
     model.save('/content/drive/My Drive/576/resnet50_100epochslr0.00001.h5')
+    predict = model.predict(val_generator);
+    predict_label = np.argmax(predict, axis=1)
+    true_label = val_generator.labels
+    get_confusion_matrix(["cort", "shsy5y","astro"],true_label,predict_label)
+
 
 
 
@@ -88,5 +94,11 @@ def classify(image):
     :param image: gray scale image with original size (520， 702）
     :return: the cell type contains in image : string "cort", "astro" or "shsy5y"
     """
+    model = load_model('/content/drive/My Drive/576/resnet50_100epochslr0.00001.h5')
+    predict = model.predict(image)
+    predict_label = np.argmax(predict, axis=1)
+    return predict
 
-    pass
+
+
+
