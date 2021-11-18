@@ -8,6 +8,8 @@ Merge annotations of one image and store as a mask image
 There are extra data of cell type shsy5y in dataset LIVECell, this script
 also select these images into /train_reorganize
 
+copy train_semi_supervised images into /train_reorganize, which only have cell type label no mask annotation
+
 """
 
 import os
@@ -21,8 +23,10 @@ if not os.path.exists("train_reorganize"):
 
 print("Copy image files to different folders")
 # copy image files to different folders
+if not os.path.exists(os.path.join("train_reorganize", "image")):
+    os.mkdir(os.path.join("train_reorganize", "image"))
 for cell_type in train_df.cell_type.value_counts().keys():
-    target_root_path = os.path.join("train_reorganize", cell_type)
+    target_root_path = os.path.join("train_reorganize", "image", cell_type)
     if not os.path.exists(target_root_path):
         os.mkdir(target_root_path)
     image_ids = train_df[train_df.cell_type == cell_type]['id'].drop_duplicates().values
@@ -48,6 +52,16 @@ for cell_type in train_df.cell_type.value_counts().keys():
             mask, annotation_count = merge_masks(train_df, image_id)
             cv2.imwrite(target_path, mask.astype(float))
 
+# copy labeled but no notation images
+print("Merge train_semi_supervised")
+for cell_type in train_df.cell_type.value_counts().keys():
+    target_root_path = os.path.join("train_reorganize", "image", cell_type)
+    for fname in os.listdir('train_semi_supervised'):
+        if fname.startswith(cell_type) and fname.endswith('.png'):
+            target_path = os.path.join(target_root_path, fname)
+            if not os.path.exists(target_path):
+                shutil.copyfile(os.path.join('train_semi_supervised', fname), target_path)
+
 print("Merge LIVECell shsy5y cell type to the train_reorganize, may take a few minutes.")
 # Merge LIVECell shsy5y cell type to the train_reorganize
 root_src_path = os.path.join('LIVECell_dataset_2021', 'images', 'livecell_train_val_images', 'SHSY5Y')
@@ -61,7 +75,7 @@ for coco in [coco_train, coco_val, coco_test]:
         root_src_path = os.path.join('LIVECell_dataset_2021', 'images', 'livecell_test_images', 'SHSY5Y')
     for img_id in coco.getImgIds():
         img_file_name = coco.imgs[img_id]['file_name']
-        img_target_path = os.path.join('train_reorganize', 'shsy5y', img_file_name[:-3] + 'png') # convert from .itf to .png
+        img_target_path = os.path.join('train_reorganize', 'image', 'shsy5y', img_file_name[:-3] + 'png') # convert from .itf to .png
         if not os.path.exists(img_target_path):
             img = cv2.cvtColor(cv2.imread(os.path.join(root_src_path, img_file_name)), cv2.COLOR_BGR2GRAY)
             cv2.imwrite(img_target_path, img)
